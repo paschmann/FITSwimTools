@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swim HR Merger</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0e17;--surface:#111827;--surface-2:#1a2235;--border:#1e2d44;--border-active:#2563eb;--text:#e2e8f0;--text-dim:#64748b;--text-muted:#475569;--accent:#3b82f6;--accent-glow:rgba(59,130,246,0.15);--green:#22c55e;--green-dim:rgba(34,197,94,0.12);--amber:#f59e0b;--red:#ef4444;--hr-color:#ef4444;--pace-color:#3b82f6;--rest-color:rgba(245,158,11,0.12);--radius:10px;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;background:linear-gradient(rgba(59,130,246,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}
+  .container{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:40px 24px 80px}
+  .header{text-align:center;margin-bottom:48px}
+  .header-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:linear-gradient(135deg,var(--accent),#6366f1);border-radius:14px;margin-bottom:20px;box-shadow:0 8px 32px rgba(59,130,246,0.25)}
+  .header-icon svg{width:28px;height:28px;fill:white}
+  h1{font-size:28px;font-weight:700;letter-spacing:-.5px;margin-bottom:8px}
+  .subtitle{color:var(--text-dim);font-size:15px;font-weight:300;line-height:1.5}
+  .drop-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+  .drop-zone{border:1.5px dashed var(--border);border-radius:var(--radius);padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);position:relative;overflow:hidden}
+  .drop-zone::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 60%,var(--accent-glow));opacity:0;transition:opacity .2s}
+  .drop-zone:hover{border-color:var(--border-active)}.drop-zone:hover::before{opacity:1}
+  .drop-zone.drag-over{border-color:var(--accent);background:rgba(59,130,246,0.05);transform:scale(1.01)}
+  .drop-zone.loaded{border-color:var(--green);border-style:solid}
+  .drop-zone.loaded::before{background:linear-gradient(135deg,transparent 60%,var(--green-dim));opacity:1}
+  .drop-icon{width:40px;height:40px;margin:0 auto 12px;border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+  .drop-icon.garmin{background:rgba(59,130,246,0.1)}.drop-icon.polar{background:rgba(239,68,68,0.1)}
+  .drop-icon svg{width:20px;height:20px}
+  .drop-label{font-weight:500;font-size:14px;margin-bottom:4px;position:relative;z-index:1}
+  .drop-hint{font-size:12px;color:var(--text-muted);position:relative;z-index:1}
+  .drop-zone.loaded .drop-hint{color:var(--green)}
+  .file-name{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:8px;position:relative;z-index:1;word-break:break-all}
+  .drop-zone input[type="file"]{display:none}
+  .merge-btn{width:100%;padding:16px;border:none;border-radius:var(--radius);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+  .merge-btn:disabled{background:var(--surface-2);color:var(--text-muted);cursor:not-allowed}
+  .merge-btn:not(:disabled){background:linear-gradient(135deg,var(--accent),#6366f1);color:white;box-shadow:0 4px 20px rgba(59,130,246,0.3)}
+  .merge-btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(59,130,246,0.4)}
+  .status-panel{margin-top:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:none}
+  .status-panel.visible{display:block}
+  .status-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);animation:pulse-dot 1.5s ease infinite}
+  .status-dot.done{background:var(--green);animation:none}.status-dot.error{background:var(--red);animation:none}
+  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+  .log{padding:14px 18px;font-family:var(--mono);font-size:11.5px;line-height:1.8;color:var(--text-dim);max-height:240px;overflow-y:auto}
+  .log .step{color:var(--accent)}.log .good{color:var(--green)}.log .warn{color:var(--amber)}.log .val{color:var(--text)}
+  .results{margin-top:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;display:none}
+  .results.visible{display:block}
+  .results h3{font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .results h3 .check{width:20px;height:20px;background:var(--green);border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
+  .results h3 .check svg{width:12px;height:12px;fill:white}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .stat-box{background:var(--surface-2);border-radius:8px;padding:14px}
+  .stat-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .stat-value{font-family:var(--mono);font-size:20px;font-weight:500}
+  .stat-change{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:2px}
+  .stat-change .arrow{color:var(--green)}
+  .download-btn{width:100%;padding:14px;border:1.5px solid var(--green);border-radius:var(--radius);background:var(--green-dim);color:var(--green);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+  .download-btn:hover{background:rgba(34,197,94,0.18);transform:translateY(-1px)}
+  .download-btn svg{width:16px;height:16px;fill:currentColor}
+  .chart-container{margin-top:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;display:none}
+  .chart-container.visible{display:block}
+  .chart-title{font-size:13px;font-weight:500;margin-bottom:4px}
+  .chart-subtitle{font-size:11px;color:var(--text-muted);margin-bottom:16px}
+  .chart-legend{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim)}
+  .legend-dot{width:8px;height:8px;border-radius:2px}
+  canvas#hrChart{width:100%;height:380px}
+  .offset-row{margin-top:16px;display:none;align-items:center;gap:12px;padding:14px 18px;background:var(--surface-2);border-radius:8px}
+  .offset-row.visible{display:flex}
+  .offset-row label{font-size:12px;color:var(--text-dim);white-space:nowrap}
+  .offset-row input[type="range"]{flex:1;accent-color:var(--accent);height:4px}
+  .offset-val{font-family:var(--mono);font-size:13px;min-width:50px;text-align:right}
+  .offset-remerge{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .offset-remerge:hover{border-color:var(--accent);background:var(--accent-glow)}
+  @media(max-width:600px){.drop-row{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr}.container{padding:24px 16px 60px}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-icon"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+    <h1>Swim HR Merger</h1>
+    <p class="subtitle">Replace Garmin wrist HR with Polar chest strap data.<br>All processing runs locally in your browser.</p>
+  </div>
+  <div class="drop-row">
+    <div class="drop-zone" id="garminDrop">
+      <div class="drop-icon garmin"><svg viewBox="0 0 24 24" fill="#3b82f6"><path d="M13 3v6h8l-10 12v-6H3l10-12z"/></svg></div>
+      <div class="drop-label">Garmin Swim FIT</div>
+      <div class="drop-hint">Drop .fit file or click to browse</div>
+      <div class="file-name" id="garminName"></div>
+      <input type="file" id="garminFile" accept=".fit">
+    </div>
+    <div class="drop-zone" id="polarDrop">
+      <div class="drop-icon polar"><svg viewBox="0 0 24 24" fill="#ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+      <div class="drop-label">Polar HR TCX</div>
+      <div class="drop-hint">Drop .tcx file or click to browse</div>
+      <div class="file-name" id="polarName"></div>
+      <input type="file" id="polarFile" accept=".tcx">
+    </div>
+  </div>
+  <button class="merge-btn" id="mergeBtn" disabled>Select both files to merge</button>
+  <div class="status-panel" id="statusPanel">
+    <div class="status-header"><div class="status-dot" id="statusDot"></div><span id="statusText">Processing…</span></div>
+    <div class="log" id="log"></div>
+  </div>
+  <div class="chart-container" id="chartContainer">
+    <div class="chart-title">Heart Rate & Pace Comparison</div>
+    <div class="chart-subtitle">Verify HR alignment — dips should match rest periods (amber bands)</div>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--text-muted)"></div>Original HR (Garmin)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--hr-color)"></div>Merged HR (Polar)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--pace-color)"></div>Pace /100m</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--rest-color);border:1px solid rgba(245,158,11,0.3)"></div>Rest</div>
+    </div>
+    <canvas id="hrChart"></canvas>
+    <div class="offset-row" id="offsetRow">
+      <label>Fine-tune offset:</label>
+      <input type="range" id="offsetSlider" min="-30" max="30" step="0.5" value="0">
+      <span class="offset-val" id="offsetVal">+0.0s</span>
+      <button class="offset-remerge" id="remergeBtn">Re-merge</button>
+    </div>
+  </div>
+  <div class="results" id="resultsPanel">
+    <h3><span class="check"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></span> Merge Complete</h3>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-label">Avg HR</div><div class="stat-value" id="statAvg">—</div><div class="stat-change" id="statAvgChange"></div></div>
+      <div class="stat-box"><div class="stat-label">Max HR</div><div class="stat-value" id="statMax">—</div><div class="stat-change" id="statMaxChange"></div></div>
+      <div class="stat-box"><div class="stat-label">Coverage</div><div class="stat-value" id="statCoverage">—</div><div class="stat-change" id="statRecords"></div></div>
+    </div>
+    <button class="download-btn" id="downloadBtn"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Download Merged FIT</button>
+  </div>
+</div>
+
+<script>
+// ── FIT CRC16 ──
+const CRC_TABLE=[0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400];
+function fitCrc16(bytes,start=0,end=null){
+  if(end===null)end=bytes.length;let crc=0;
+  for(let i=start;i<end;i++){const b=bytes[i];let tmp=CRC_TABLE[crc&0xF];crc=(crc>>4)&0x0FFF;crc=crc^tmp^CRC_TABLE[b&0xF];tmp=CRC_TABLE[crc&0xF];crc=(crc>>4)&0x0FFF;crc=crc^tmp^CRC_TABLE[(b>>4)&0xF];}
+  return crc;
+}
+const FIT_EPOCH=Date.UTC(1989,11,31,0,0,0)/1000;
+function fitTsToDate(ts){return new Date((FIT_EPOCH+ts)*1000);}
+
+// ── Parse FIT ──
+function parseFIT(buffer){
+  const dv=new DataView(buffer),bytes=new Uint8Array(buffer);
+  const headerSize=bytes[0],dataSize=dv.getUint32(4,true);
+  const defs={},records=[],laps=[],lengths=[];
+  let session=null,pos=headerSize,lastTs=0;
+  const endPos=headerSize+dataSize;
+  const mesgCounts={};
+
+  while(pos<endPos){
+    const hdr=bytes[pos];
+    const compressed=(hdr&0x80)!==0;
+    const isDef=!compressed&&(hdr&0x40)!==0;
+    const localNum=compressed?(hdr>>5)&0x3:hdr&0x0F;
+    const hasDev=!compressed&&(hdr&0x20)!==0;
+
+    if(isDef){
+      pos++;pos++;const arch=bytes[pos++];
+      const gmn=arch?dv.getUint16(pos,false):dv.getUint16(pos,true);pos+=2;
+      const nf=bytes[pos++];const fields=[];let tsz=0;
+      for(let i=0;i<nf;i++){const dn=bytes[pos++],sz=bytes[pos++],bt=bytes[pos++];fields.push({defNum:dn,size:sz,baseType:bt,offset:tsz});tsz+=sz;}
+      let devFields=[],dsz=0;
+      if(hasDev){const nd=bytes[pos++];for(let i=0;i<nd;i++){const fn=bytes[pos++],sz=bytes[pos++];pos++;devFields.push({defNum:fn,size:sz,offset:tsz+dsz});dsz+=sz;}}
+      defs[localNum]={globalMesgNum:gmn,arch,fields,devFields,totalSize:tsz+dsz};
+    } else {
+      if(compressed){const tOff=hdr&0x1F;lastTs=(lastTs&0xFFFFFFE0)+tOff;if(tOff<(lastTs&0x1F))lastTs+=0x20;}
+      const def=defs[localNum];if(!def){pos++;continue;}
+      const ds=pos+1,le=!def.arch;
+      const gmn=def.globalMesgNum;
+      mesgCounts[gmn]=(mesgCounts[gmn]||0)+1;
+      let ts=null;
+      for(const f of def.fields){if(f.defNum===253&&f.size===4){const r=dv.getUint32(ds+f.offset,le);if(r!==0xFFFFFFFF){ts=r;lastTs=r;}break;}}
+      const useTs=ts||lastTs;
+
+      if(gmn===20){// Record
+        let hrOff=null,hrSize=0;
+        for(const f of def.fields){if(f.defNum===3){hrOff=ds+f.offset;hrSize=f.size;break;}}
+        if(hrOff!==null){
+          let hr=0;
+          if(hrSize===1){hr=bytes[hrOff];if(hr===0xFF)hr=0;}
+          else if(hrSize===2){hr=dv.getUint16(hrOff,le);if(hr===0xFFFF)hr=0;}
+          if(hr>0&&hr<255) records.push({fileOffset:hrOff,hrSize,timestamp:fitTsToDate(useTs),hr});
+        }
+      } else if(gmn===19){// Lap
+        let ao=null,mo=null,st=null,el=null,aoSz=1,moSz=1;
+        for(const f of def.fields){
+          if(f.defNum===15){ao=ds+f.offset;aoSz=f.size;}
+          if(f.defNum===16){mo=ds+f.offset;moSz=f.size;}
+          if(f.defNum===2&&f.size===4){const r=dv.getUint32(ds+f.offset,le);if(r!==0xFFFFFFFF)st=fitTsToDate(r);}
+          if(f.defNum===7&&f.size===4){const r=dv.getUint32(ds+f.offset,le);if(r!==0xFFFFFFFF)el=r/1000;}
+        }
+        laps.push({avgHrOffset:ao,maxHrOffset:mo,avgHrSize:aoSz,maxHrSize:moSz,startTime:st,elapsed:el});
+      } else if(gmn===18&&!session){// Session
+        let ao=null,mo=null,aoSz=1,moSz=1;
+        for(const f of def.fields){
+          if(f.defNum===16){ao=ds+f.offset;aoSz=f.size;}
+          if(f.defNum===17){mo=ds+f.offset;moSz=f.size;}
+        }
+        session={avgHrOffset:ao,maxHrOffset:mo,avgHrSize:aoSz,maxHrSize:moSz};
+      } else if(gmn===101){// Length
+        let st=null,el=null,lt=null,spd=null;
+        for(const f of def.fields){
+          if(f.defNum===2&&f.size===4){const r=dv.getUint32(ds+f.offset,le);if(r!==0xFFFFFFFF)st=fitTsToDate(r);}
+          if(f.defNum===3&&f.size===4){const r=dv.getUint32(ds+f.offset,le);if(r!==0xFFFFFFFF)el=r/1000;}
+          if(f.defNum===12&&f.size===1)lt=bytes[ds+f.offset];
+          if(f.defNum===6&&f.size===2){const r=dv.getUint16(ds+f.offset,le);if(r!==0xFFFF)spd=r/1000;}
+        }
+        let pace100=null;
+        if(spd&&spd>0) pace100=100.0/spd;
+        lengths.push({startTime:st,elapsed:el,type:lt,speed:spd,pace100});
+      }
+      pos=ds+def.totalSize;
+    }
+  }
+  console.log('FIT parse: mesgCounts=',mesgCounts,'records=',records.length,'laps=',laps.length,'lengths=',lengths.length);
+  return {bytes:new Uint8Array(buffer),headerSize,dataSize,records,laps,session,lengths,mesgCounts};
+}
+
+// ── Parse Polar TCX ──
+function parseTCX(text){
+  const doc=new DOMParser().parseFromString(text,'text/xml');
+  const ns='http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2';
+  const data=[];
+  for(const tp of doc.getElementsByTagNameNS(ns,'Trackpoint')){
+    const tEl=tp.getElementsByTagNameNS(ns,'Time')[0],hEl=tp.getElementsByTagNameNS(ns,'Value')[0];
+    if(tEl&&hEl){const ts=new Date(tEl.textContent.trim()),hr=parseInt(hEl.textContent);if(!isNaN(ts.getTime())&&!isNaN(hr))data.push({ts,hr});}
+  }
+  data.sort((a,b)=>a.ts-b.ts);return data;
+}
+
+// ── HR interpolation ──
+class HRTimeSeries{
+  constructor(data,offsetMs=0){this.data=data;this.offset=offsetMs;}
+  getHR(q){
+    if(!this.data.length)return null;
+    const adj=new Date(q.getTime()+this.offset),tol=10000;
+    const f=this.data[0].ts,l=this.data[this.data.length-1].ts;
+    if(adj<f)return(f-adj<=tol)?this.data[0].hr:null;
+    if(adj>l)return(adj-l<=tol)?this.data[this.data.length-1].hr:null;
+    let lo=0,hi=this.data.length-1;
+    while(lo<hi-1){const m=(lo+hi)>>1;if(this.data[m].ts<=adj)lo=m;else hi=m;}
+    const t0=this.data[lo].ts.getTime(),t1=this.data[hi].ts.getTime(),dt=t1-t0;
+    if(dt===0)return this.data[lo].hr;
+    const fr=(adj.getTime()-t0)/dt;
+    return Math.max(1,Math.min(255,Math.round(this.data[lo].hr+fr*(this.data[hi].hr-this.data[lo].hr))));
+  }
+}
+
+// ── Auto-align ──
+function autoAlign(fitData,polarData){
+  if(!fitData.records.length||!polarData.length)return 0;
+  const gStart=fitData.records[0].timestamp,pStart=polarData[0].ts;
+  const restEnds=[];
+  for(const l of fitData.lengths){if(l.type===0&&l.startTime&&l.elapsed)restEnds.push(new Date(l.startTime.getTime()+l.elapsed*1000)-gStart);}
+  if(restEnds.length<2)return pStart-gStart;
+
+  const pTimes=polarData.map(d=>d.ts-pStart),pHrs=polarData.map(d=>d.hr);
+  const win=Math.min(31,Math.floor(pHrs.length/10))|1,half=Math.floor(win/2);
+  const smoothed=pHrs.map((_,i)=>{let s=0,c=0;for(let j=Math.max(0,i-half);j<=Math.min(pHrs.length-1,i+half);j++){s+=pHrs[j];c++;}return s/c;});
+  const meanHr=smoothed.reduce((a,b)=>a+b,0)/smoothed.length;
+
+  const dipIdx=[];const sr=30;
+  for(let i=sr;i<smoothed.length-sr;i++){let isMin=true;for(let j=Math.max(0,i-sr);j<Math.min(smoothed.length,i+sr);j++){if(smoothed[j]<smoothed[i]){isMin=false;break;}}if(isMin&&smoothed[i]<meanHr-3){if(!dipIdx.length||pTimes[i]-pTimes[dipIdx[dipIdx.length-1]]>200000)dipIdx.push(i);}}
+  if(dipIdx.length>=2){const rH=smoothed[dipIdx[0]],oH=dipIdx.slice(1).map(i=>smoothed[i]);if(Math.min(...oH)-rH>20)dipIdx.splice(0,1);}
+  if(!dipIdx.length)return pStart-gStart;
+
+  const pushoffs=dipIdx.map(idx=>{const dH=smoothed[idx];for(let j=idx;j<Math.min(idx+30,smoothed.length);j++){if(smoothed[j]>dH+3)return pTimes[j];}return pTimes[idx]+5000;});
+  const clockDiff=gStart-pStart;
+  let bestOff=0,bestScore=Infinity;
+  for(let t=-200000;t<=200000;t+=500){let err=0;for(const re of restEnds){const exp=re+clockDiff+t;let near=Infinity;for(const p of pushoffs)near=Math.min(near,Math.abs(exp-p));err+=near;}const avg=err/restEnds.length;if(avg<bestScore){bestScore=avg;bestOff=t;}}
+  return bestOff;
+}
+
+// ── Merge ──
+function mergeFIT(fitData,polarData,offsetMs){
+  const data=new Uint8Array(fitData.bytes),hrs=new HRTimeSeries(polarData,offsetMs);
+  const origHrs=[],newHrs=[];let patched=0,skipped=0;const allNew=[];
+  for(const rec of fitData.records){
+    origHrs.push(rec.hr);const nh=hrs.getHR(rec.timestamp);
+    if(nh===null){skipped++;newHrs.push(rec.hr);allNew.push({ts:rec.timestamp,hr:rec.hr});}
+    else{data[rec.fileOffset]=nh;patched++;newHrs.push(nh);allNew.push({ts:rec.timestamp,hr:nh});}
+  }
+  for(const lap of fitData.laps){
+    if(!lap.startTime||!lap.elapsed)continue;const end=new Date(lap.startTime.getTime()+lap.elapsed*1000);
+    const lh=allNew.filter(r=>r.ts>=lap.startTime&&r.ts<=end).map(r=>r.hr);
+    if(lh.length&&lap.avgHrOffset!==null)data[lap.avgHrOffset]=Math.min(255,Math.round(lh.reduce((a,b)=>a+b)/lh.length));
+    if(lh.length&&lap.maxHrOffset!==null)data[lap.maxHrOffset]=Math.min(255,Math.max(...lh));
+  }
+  if(fitData.session){const ah=allNew.map(r=>r.hr);if(ah.length){if(fitData.session.avgHrOffset!==null)data[fitData.session.avgHrOffset]=Math.min(255,Math.round(ah.reduce((a,b)=>a+b)/ah.length));if(fitData.session.maxHrOffset!==null)data[fitData.session.maxHrOffset]=Math.min(255,Math.max(...ah));}}
+  const hs=fitData.headerSize,ds=fitData.dataSize;
+  if(hs===14){const c=fitCrc16(data,0,12);data[12]=c&0xFF;data[13]=(c>>8)&0xFF;}
+  const fc=fitCrc16(data,0,hs+ds);data[hs+ds]=fc&0xFF;data[hs+ds+1]=(fc>>8)&0xFF;
+  const origAvg=Math.round(origHrs.reduce((a,b)=>a+b)/origHrs.length),origMax=Math.max(...origHrs);
+  const newAvg=Math.round(allNew.map(r=>r.hr).reduce((a,b)=>a+b)/allNew.length),newMax=Math.max(...allNew.map(r=>r.hr));
+  return{data,patched,skipped,total:fitData.records.length,origAvg,origMax,newAvg,newMax,originalHrs:origHrs,newHrs,timestamps:fitData.records.map(r=>r.timestamp)};
+}
+
+// ── Chart with pace overlay ──
+function drawChart(canvas, timestamps, origHrs, newHrs, lengths) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Downsample HR
+  const step = Math.max(1, Math.floor(timestamps.length / 500));
+  const ts = [], o = [], m = [];
+  for (let i = 0; i < timestamps.length; i += step) { ts.push(timestamps[i]); o.push(origHrs[i]); m.push(newHrs[i]); }
+
+  const allHr = [...o, ...m].filter(v => v > 0);
+  const minHr = Math.min(...allHr) - 5, maxHr = Math.max(...allHr) + 5;
+  const tMin = ts[0].getTime(), tMax = ts[ts.length - 1].getTime();
+
+  // Pace range
+  const activeLengths = lengths.filter(l => l.type === 1 && l.pace100);
+  const paces = activeLengths.map(l => l.pace100);
+  const minPace = paces.length ? Math.min(...paces) - 5 : 70;
+  const maxPace = paces.length ? Math.max(...paces) + 10 : 120;
+
+  // Layout: HR top, pace bottom, shared time axis
+  const pad = { l: 44, r: 44, t: 10, b: 26 };
+  const totalH = H - pad.t - pad.b;
+  const hrH = totalH * 0.50;
+  const gap = 20;
+  const paceH = totalH - hrH - gap;
+  const hrTop = pad.t;
+  const paceTop = pad.t + hrH + gap;
+
+  const cW = W - pad.l - pad.r;
+  const xFn = t => pad.l + ((t.getTime ? t.getTime() : t) - tMin) / (tMax - tMin) * cW;
+  const yHr = hr => hrTop + (1 - (hr - minHr) / (maxHr - minHr)) * hrH;
+  // Pace: inverted (lower pace = faster = higher on chart)
+  const yPace = p => paceTop + ((p - minPace) / (maxPace - minPace)) * paceH;
+  const paceBottom = paceTop + paceH;
+
+  // ── Draw rest period bands (full height across both panels) ──
+  const restLengths = lengths.filter(l => l.type === 0 && l.startTime && l.elapsed);
+  for (const rl of restLengths) {
+    const x0 = xFn(rl.startTime);
+    const x1 = xFn(new Date(rl.startTime.getTime() + rl.elapsed * 1000));
+    // Fill spanning both HR and pace sections
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.10)';
+    ctx.fillRect(x0, hrTop, x1 - x0, paceBottom - hrTop);
+    // Border lines
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(x0, hrTop); ctx.lineTo(x0, paceBottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x1, hrTop); ctx.lineTo(x1, paceBottom); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ── HR section grid ──
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+  for (let hr = Math.ceil(minHr / 20) * 20; hr <= maxHr; hr += 20) {
+    const yy = yHr(hr);
+    if (yy >= hrTop && yy <= hrTop + hrH) {
+      ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke();
+      ctx.fillStyle = '#ef444480'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'right';
+      ctx.fillText(hr, pad.l - 6, yy + 3);
+    }
+  }
+
+  // ── Pace section grid ──
+  for (let p = Math.ceil(minPace / 10) * 10; p <= maxPace; p += 10) {
+    const yy = yPace(p);
+    if (yy >= paceTop && yy <= paceBottom) {
+      ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke();
+      const mins = Math.floor(p / 60), secs = Math.round(p % 60);
+      ctx.fillStyle = '#3b82f680'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'left';
+      ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, W - pad.r + 5, yy + 3);
+    }
+  }
+
+  // ── Time axis ──
+  const dur = (tMax - tMin) / 60000; const tSt = dur > 30 ? 10 : 5;
+  ctx.fillStyle = '#475569'; ctx.textAlign = 'center'; ctx.font = '10px JetBrains Mono,monospace';
+  for (let mn = 0; mn <= dur; mn += tSt) ctx.fillText(mn + 'm', xFn(tMin + mn * 60000), H - 6);
+
+  // ── Section labels ──
+  ctx.save();
+  ctx.fillStyle = '#ef444460'; ctx.font = '600 9px DM Sans,sans-serif'; ctx.textAlign = 'right';
+  ctx.translate(pad.l - 28, hrTop + hrH / 2);
+  ctx.rotate(-Math.PI / 2); ctx.fillText('HR (bpm)', 0, 0); ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = '#3b82f660'; ctx.font = '600 9px DM Sans,sans-serif'; ctx.textAlign = 'right';
+  ctx.translate(W - pad.r + 34, paceTop + paceH / 2);
+  ctx.rotate(Math.PI / 2); ctx.fillText('Pace /100m', 0, 0); ctx.restore();
+
+  // ── Separator line between HR and pace ──
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, hrTop + hrH + gap / 2); ctx.lineTo(W - pad.r, hrTop + hrH + gap / 2); ctx.stroke();
+
+  // ── Draw pace bars (bottom-up from pace section floor) ──
+  console.log('PACE DEBUG:', {activeLengths: activeLengths.length, paceTop, paceBottom, paceH, minPace, maxPace});
+  for (const l of activeLengths) {
+    if (!l.startTime || !l.pace100) continue;
+    const x0 = xFn(l.startTime);
+    const x1 = xFn(new Date(l.startTime.getTime() + l.elapsed * 1000));
+    const yTop = yPace(l.pace100);   // top of bar (the pace value)
+    const barW = Math.max(x1 - x0 - 1.5, 2);
+    const barH = paceBottom - yTop;   // height from pace value down to bottom
+
+    if (activeLengths.indexOf(l) < 3) {
+      console.log('BAR:', {x0: x0.toFixed(1), x1: x1.toFixed(1), yTop: yTop.toFixed(1), barW: barW.toFixed(1), barH: barH.toFixed(1), pace: l.pace100.toFixed(1)});
+    }
+
+    // Gradient fill
+    const gradient = ctx.createLinearGradient(0, yTop, 0, paceBottom);
+    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.6)');
+    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.15)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x0 + 0.75, yTop, barW, barH);
+
+    // Top edge highlight
+    ctx.fillStyle = 'rgba(96, 165, 250, 0.9)';
+    ctx.fillRect(x0 + 0.75, yTop, barW, 2);
+  }
+
+  // ── Draw original HR (dimmed) ──
+  ctx.strokeStyle = 'rgba(100,116,139,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < ts.length; i++) {
+    const px = xFn(ts[i]), py = yHr(o[i]);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // ── Draw merged HR ──
+  ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < ts.length; i++) {
+    const px = xFn(ts[i]), py = yHr(m[i]);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+
+// ═════════════════════════════════════════════════════════════════
+// UI
+// ═════════════════════════════════════════════════════════════════
+let garminBuffer=null,garminFileName='',polarText=null;
+let fitData=null,polarData=null,autoOffsetMs=0,lastResult=null,lastLengths=null;
+const $=id=>document.getElementById(id);
+
+function setupDrop(dropId,inputId,onLoad){
+  const drop=$(dropId),inp=$(inputId);
+  drop.addEventListener('click',()=>inp.click());
+  drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag-over');});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('drag-over'));
+  drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag-over');if(e.dataTransfer.files.length)onLoad(e.dataTransfer.files[0]);});
+  inp.addEventListener('change',()=>{if(inp.files.length)onLoad(inp.files[0]);});
+}
+setupDrop('garminDrop','garminFile',file=>{
+  garminFileName=file.name;$('garminName').textContent=file.name;
+  $('garminDrop').classList.add('loaded');$('garminDrop').querySelector('.drop-hint').textContent='File loaded ✓';
+  file.arrayBuffer().then(b=>{garminBuffer=b;checkReady();});
+});
+setupDrop('polarDrop','polarFile',file=>{
+  $('polarName').textContent=file.name;$('polarDrop').classList.add('loaded');
+  $('polarDrop').querySelector('.drop-hint').textContent='File loaded ✓';
+  file.text().then(t=>{polarText=t;checkReady();});
+});
+function checkReady(){if(garminBuffer&&polarText){$('mergeBtn').disabled=false;$('mergeBtn').textContent='Merge Heart Rate Data';}}
+function log(html){$('log').innerHTML+=html+'\n';$('log').scrollTop=$('log').scrollHeight;}
+
+$('mergeBtn').addEventListener('click',()=>{
+  $('statusPanel').classList.add('visible');$('resultsPanel').classList.remove('visible');
+  $('chartContainer').classList.remove('visible');$('offsetRow').classList.remove('visible');
+  $('statusDot').className='status-dot';$('statusText').textContent='Processing…';$('log').innerHTML='';$('mergeBtn').disabled=true;
+  setTimeout(()=>{try{runMerge();}catch(e){$('statusDot').classList.add('error');$('statusText').textContent='Error';log(`<span class="warn">Error: ${e.message}</span>`);$('mergeBtn').disabled=false;}},50);
+});
+
+function runMerge(manualDelta=0){
+  log('<span class="step">[1/4]</span> Parsing Polar TCX…');
+  polarData=parseTCX(polarText);
+  log(`  Found <span class="val">${polarData.length}</span> HR points (${Math.min(...polarData.map(d=>d.hr))}–${Math.max(...polarData.map(d=>d.hr))} bpm)`);
+
+  log('<span class="step">[2/4]</span> Parsing Garmin FIT…');
+  fitData=parseFIT(garminBuffer.slice(0));
+  const activeLens=fitData.lengths.filter(l=>l.type===1);
+  const restLens=fitData.lengths.filter(l=>l.type===0);
+  log(`  Found <span class="val">${fitData.records.length}</span> records, <span class="val">${fitData.laps.length}</span> laps, <span class="val">${activeLens.length}</span> active lengths, <span class="val">${restLens.length}</span> rests`);
+  if(fitData.mesgCounts){const mc=Object.entries(fitData.mesgCounts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${v}`).join(' ');log(`  <span style="opacity:0.5">Mesg types: ${mc}</span>`);}
+
+  log('<span class="step">[3/4]</span> Auto-aligning swim/rest pattern…');
+  autoOffsetMs=autoAlign(fitData,polarData);
+  const total=autoOffsetMs+manualDelta;
+  log(`  Auto offset: <span class="val">${(autoOffsetMs/1000).toFixed(1)}s</span>${manualDelta?` + manual: <span class="val">${(manualDelta/1000).toFixed(1)}s</span>`:''}`);
+
+  log('<span class="step">[4/4]</span> Patching FIT binary…');
+  fitData=parseFIT(garminBuffer.slice(0));
+  lastResult=mergeFIT(fitData,polarData,total);
+  lastLengths=fitData.lengths;
+
+  const pct=((lastResult.patched/lastResult.total)*100).toFixed(1);
+  log(`  Patched: <span class="good">${lastResult.patched}/${lastResult.total}</span> (${pct}%)`);
+  log(`  Avg HR: ${lastResult.origAvg} → <span class="good">${lastResult.newAvg}</span> | Max HR: ${lastResult.origMax} → <span class="good">${lastResult.newMax}</span>`);
+
+  $('statusDot').classList.add('done');$('statusText').textContent='Complete';
+  $('statAvg').textContent=lastResult.newAvg;$('statAvgChange').innerHTML=`<span class="arrow">↑</span> was ${lastResult.origAvg}`;
+  $('statMax').textContent=lastResult.newMax;$('statMaxChange').innerHTML=`<span class="arrow">↑</span> was ${lastResult.origMax}`;
+  $('statCoverage').textContent=pct+'%';$('statRecords').textContent=lastResult.patched+' records';
+  $('resultsPanel').classList.add('visible');
+
+  $('chartContainer').classList.add('visible');
+  drawChart($('hrChart'),lastResult.timestamps,lastResult.originalHrs,lastResult.newHrs,lastLengths);
+  $('offsetRow').classList.add('visible');
+  $('offsetSlider').value=manualDelta/1000;
+  $('offsetVal').textContent=`${manualDelta>=0?'+':''}${(manualDelta/1000).toFixed(1)}s`;
+  $('mergeBtn').disabled=false;$('mergeBtn').textContent='Merge Heart Rate Data';
+}
+
+$('offsetSlider').addEventListener('input',()=>{const v=parseFloat($('offsetSlider').value);$('offsetVal').textContent=`${v>=0?'+':''}${v.toFixed(1)}s`;});
+$('remergeBtn').addEventListener('click',()=>{
+  const delta=parseFloat($('offsetSlider').value)*1000;
+  $('statusPanel').classList.add('visible');$('statusDot').className='status-dot';$('statusText').textContent='Re-merging…';$('log').innerHTML='';
+  setTimeout(()=>{try{runMerge(delta);}catch(e){$('statusDot').classList.add('error');$('statusText').textContent='Error';log(`<span class="warn">${e.message}</span>`);}},50);
+});
+$('downloadBtn').addEventListener('click',()=>{
+  if(!lastResult)return;const blob=new Blob([lastResult.data],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;
+  a.download=garminFileName.replace('.fit','_merged.fit');a.click();URL.revokeObjectURL(url);
+});
+window.addEventListener('resize',()=>{if(lastResult&&lastLengths)drawChart($('hrChart'),lastResult.timestamps,lastResult.originalHrs,lastResult.newHrs,lastLengths);});
+</script>
+</body>
+</html>
